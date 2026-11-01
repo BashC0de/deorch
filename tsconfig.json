@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@deorch/shared-contracts": ["./packages/shared-contracts/src/index.ts"],
+      "@deorch/adapter-claude-code": ["./packages/agent-adapters/claude-code/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "**/dist", "**/.next", "**/coverage"]
+}
