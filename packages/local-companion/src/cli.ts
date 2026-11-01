@@ -9,6 +9,7 @@ import { logoutCommand } from './cli/logout.js';
 import { setupCommand } from './cli/setup.js';
 import { uninstallCommand } from './cli/uninstall.js';
 import { servicesCommand } from './cli/services.js';
+import { providersCommand } from './cli/providers.js';
 
 const program = new Command();
 
@@ -24,6 +25,7 @@ program.addCommand(startCommand);
 program.addCommand(statusCommand);
 program.addCommand(devicesCommand);
 program.addCommand(servicesCommand);
+program.addCommand(providersCommand);
 program.addCommand(uninstallCommand);
 program.addCommand(logoutCommand);
 

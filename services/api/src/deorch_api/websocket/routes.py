@@ -126,6 +126,7 @@ async def companion_ws(ws: WebSocket) -> None:
         payload = msg["payload"]
         raw_device_id = payload.get("device_id", "")
         raw_secret = payload.get("device_secret", "")
+        provider_slug = payload.get("provider_slug", "default")
 
         async with AsyncSessionFactory() as db:
             try:
@@ -161,7 +162,7 @@ async def companion_ws(ws: WebSocket) -> None:
                 await ws.close(code=4001)
                 return
 
-        await connection_manager.connect_device(ws, device_id)
+        await connection_manager.connect_device(ws, device_id, provider_slug)
         await ws.send_json(auth_ok(device_id=device_id))
 
         # Notify user's dashboard that device connected
@@ -203,7 +204,7 @@ async def companion_ws(ws: WebSocket) -> None:
         log.exception("ws_companion_error", device_id=device_id)
     finally:
         if device_id:
-            await connection_manager.disconnect_device(ws, device_id)
+            await connection_manager.disconnect_device(ws, device_id, provider_slug)
             await connection_manager.send_to_user(
                 user_id, device_disconnected_msg(device_id)  # type: ignore[possibly-undefined]
             )

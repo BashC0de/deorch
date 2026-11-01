@@ -1,16 +1,44 @@
 import { Command } from 'commander';
-import { uninstall } from '../adapter/claude-code.js';
+import { AdapterRegistry } from '../adapter/types.js';
+import { ClaudeCodeAdapter } from '../adapter/claude-code.js';
+import { CodexAdapter } from '../adapter/codex.js';
+import { GeminiAdapter } from '../adapter/gemini.js';
+
+function getRegistry(): AdapterRegistry {
+  const registry = new AdapterRegistry();
+  registry.register(new ClaudeCodeAdapter());
+  registry.register(new CodexAdapter());
+  registry.register(new GeminiAdapter());
+  return registry;
+}
 
 export const uninstallCommand = new Command('uninstall')
-  .description('Remove DeOrch hooks from Claude Code')
-  .action(() => {
-    console.log('Removing DeOrch hooks from Claude Code settings...');
-    const result = uninstall();
-    if (result.success) {
-      console.log('DeOrch hooks removed successfully.');
-      console.log('Claude Code will no longer route permission requests through DeOrch.');
+  .description('Remove DeOrch hooks from agent providers')
+  .option('--provider <id>', 'Specific provider to uninstall (default: all)')
+  .action((opts: { provider?: string }) => {
+    const registry = getRegistry();
+
+    if (opts.provider) {
+      const adapter = registry.get(opts.provider);
+      if (!adapter) {
+        console.error(`Unknown provider: ${opts.provider}`);
+        process.exit(1);
+      }
+      const result = adapter.uninstall();
+      if (result.success) {
+        console.log(`DeOrch hooks removed from ${adapter.providerName}.`);
+      } else {
+        console.error(`Failed: ${result.error}`);
+        process.exit(1);
+      }
     } else {
-      console.error(`Failed to remove hooks: ${result.error}`);
-      process.exit(1);
+      // Uninstall from all providers
+      for (const adapter of registry.list()) {
+        const result = adapter.uninstall();
+        if (result.success) {
+          console.log(`Removed hooks from ${adapter.providerName}`);
+        }
+      }
+      console.log('All DeOrch hooks removed.');
     }
   });

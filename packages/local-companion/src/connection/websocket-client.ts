@@ -93,6 +93,7 @@ export class DeOrchWebSocketClient extends EventEmitter<ClientEvents> {
           payload: {
             device_id: this.config.deviceId,
             device_secret: this.config.deviceSecret,
+            provider_slug: this.config.providerSlug,
           },
         });
         break;

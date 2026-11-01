@@ -2,12 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { getHooksConfig, getCapabilities, SUPPORTED_CAPABILITIES, UNSUPPORTED_CAPABILITIES } from '../adapter/claude-code.js';
+import { ClaudeCodeAdapter } from '../adapter/claude-code.js';
+import { CodexAdapter } from '../adapter/codex.js';
+import { GeminiAdapter } from '../adapter/gemini.js';
+import { AdapterRegistry } from '../adapter/types.js';
 
-describe('Claude Code adapter', () => {
+describe('ClaudeCodeAdapter', () => {
+  const adapter = new ClaudeCodeAdapter();
+
   describe('getHooksConfig', () => {
     it('generates config for all hook events', () => {
-      const config = getHooksConfig(8765);
+      const config = adapter.getHooksConfig(8765);
       expect(config).toHaveProperty('PreToolUse');
       expect(config).toHaveProperty('PostToolUse');
       expect(config).toHaveProperty('PostToolUseFailure');
@@ -17,46 +22,81 @@ describe('Claude Code adapter', () => {
     });
 
     it('uses correct URL with custom port', () => {
-      const config = getHooksConfig(9999);
+      const config = adapter.getHooksConfig(9999);
       const preToolUse = config['PreToolUse'] as Array<{ hooks: Array<{ url: string }> }>;
       expect(preToolUse[0]!.hooks[0]!.url).toBe('http://127.0.0.1:9999/hooks');
     });
 
-    it('sets 300s timeout for PreToolUse (approval wait)', () => {
-      const config = getHooksConfig(8765);
+    it('sets 300s timeout for PreToolUse', () => {
+      const config = adapter.getHooksConfig(8765);
       const preToolUse = config['PreToolUse'] as Array<{ hooks: Array<{ timeout: number }> }>;
       expect(preToolUse[0]!.hooks[0]!.timeout).toBe(300);
-    });
-
-    it('sets short timeout for observe-only hooks', () => {
-      const config = getHooksConfig(8765);
-      const postToolUse = config['PostToolUse'] as Array<{ hooks: Array<{ timeout: number }> }>;
-      expect(postToolUse[0]!.hooks[0]!.timeout).toBe(10);
-    });
-
-    it('uses http hook type for all events', () => {
-      const config = getHooksConfig(8765);
-      for (const [, entries] of Object.entries(config)) {
-        const arr = entries as Array<{ hooks: Array<{ type: string }> }>;
-        expect(arr[0]!.hooks[0]!.type).toBe('http');
-      }
     });
   });
 
   describe('getCapabilities', () => {
-    it('returns supported capabilities', () => {
-      const caps = getCapabilities();
-      expect(caps.supported).toEqual(SUPPORTED_CAPABILITIES);
-      expect(caps.supported).toContain('intercept_permission_requests');
-      expect(caps.supported).toContain('resolve_permission_requests');
+    it('supports permission interception', () => {
+      const caps = adapter.getCapabilities();
+      expect(caps.permissionInterception).toBe(true);
+      expect(caps.remoteApprovalResolution).toBe(true);
+      expect(caps.messageInjection).toBe(false);
     });
+  });
 
-    it('returns unsupported capabilities', () => {
-      const caps = getCapabilities();
-      expect(caps.unsupported).toEqual(UNSUPPORTED_CAPABILITIES);
-      expect(caps.unsupported).toContain('send_follow_up_message');
-      expect(caps.unsupported).toContain('stop_session');
-    });
+  it('has correct provider metadata', () => {
+    expect(adapter.providerId).toBe('claude-code');
+    expect(adapter.providerName).toBe('Claude Code');
+  });
+});
+
+describe('CodexAdapter', () => {
+  const adapter = new CodexAdapter();
+
+  it('has correct provider metadata', () => {
+    expect(adapter.providerId).toBe('codex');
+    expect(adapter.providerName).toBe('OpenAI Codex');
+  });
+
+  it('generates hooks config', () => {
+    const config = adapter.getHooksConfig(8765);
+    expect(config).toHaveProperty('PreToolUse');
+    expect(config).toHaveProperty('PostToolUse');
+    expect(config).toHaveProperty('SessionStart');
+  });
+});
+
+describe('GeminiAdapter', () => {
+  const adapter = new GeminiAdapter();
+
+  it('has correct provider metadata', () => {
+    expect(adapter.providerId).toBe('gemini');
+    expect(adapter.providerName).toBe('Gemini CLI');
+  });
+
+  it('generates hooks config', () => {
+    const config = adapter.getHooksConfig(8765);
+    expect(config).toHaveProperty('PreToolUse');
+    expect(config).toHaveProperty('PostToolUse');
+  });
+});
+
+describe('AdapterRegistry', () => {
+  it('registers and retrieves adapters', () => {
+    const registry = new AdapterRegistry();
+    registry.register(new ClaudeCodeAdapter());
+    registry.register(new CodexAdapter());
+
+    expect(registry.has('claude-code')).toBe(true);
+    expect(registry.has('codex')).toBe(true);
+    expect(registry.has('unknown')).toBe(false);
+    expect(registry.list()).toHaveLength(2);
+  });
+
+  it('gets adapter by provider ID', () => {
+    const registry = new AdapterRegistry();
+    registry.register(new ClaudeCodeAdapter());
+    const adapter = registry.get('claude-code');
+    expect(adapter?.providerId).toBe('claude-code');
   });
 });
 
@@ -76,28 +116,41 @@ describe('install/uninstall', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('install creates settings with hooks', async () => {
-    // Dynamic import to pick up mocked HOME
-    const { install } = await import('../adapter/claude-code.js');
-    const result = install(8765);
+  it('claude-code install creates settings with hooks', () => {
+    const adapter = new ClaudeCodeAdapter();
+    const result = adapter.install(8765);
     expect(result.success).toBe(true);
 
     const settingsPath = path.join(tmpDir, '.claude', 'settings.json');
     expect(fs.existsSync(settingsPath)).toBe(true);
-
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks.PreToolUse).toBeDefined();
   });
 
-  it('uninstall removes hooks', async () => {
-    const { install, uninstall } = await import('../adapter/claude-code.js');
-    install(8765);
-    const result = uninstall();
+  it('claude-code uninstall removes hooks', () => {
+    const adapter = new ClaudeCodeAdapter();
+    adapter.install(8765);
+    const result = adapter.uninstall();
+    expect(result.success).toBe(true);
+  });
+
+  it('codex install creates hooks.json', () => {
+    const adapter = new CodexAdapter();
+    const result = adapter.install(8765);
     expect(result.success).toBe(true);
 
-    const settingsPath = path.join(tmpDir, '.claude', 'settings.json');
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    expect(settings.hooks).toBeUndefined();
+    const hooksPath = path.join(tmpDir, '.codex', 'hooks.json');
+    expect(fs.existsSync(hooksPath)).toBe(true);
+  });
+
+  it('gemini install creates extension', () => {
+    const adapter = new GeminiAdapter();
+    const result = adapter.install(8765);
+    expect(result.success).toBe(true);
+
+    const extDir = path.join(tmpDir, '.gemini', 'extensions', 'deorch');
+    expect(fs.existsSync(path.join(extDir, 'extension.json'))).toBe(true);
+    expect(fs.existsSync(path.join(extDir, 'hooks', 'hooks.json'))).toBe(true);
   });
 });

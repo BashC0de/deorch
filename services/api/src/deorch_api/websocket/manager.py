@@ -15,12 +15,13 @@ class ConnectionManager:
     Tracks all active WebSocket connections.
 
     user_connections: browser dashboard sessions (multiple per user)
-    device_connections: local companion connections (one per device)
+    device_connections: local companion connections (multiple providers per device)
     """
 
     def __init__(self) -> None:
         self._user_connections: dict[str, set[WebSocket]] = defaultdict(set)
-        self._device_connections: dict[str, WebSocket] = {}
+        # device_id → provider_slug → WebSocket
+        self._device_connections: dict[str, dict[str, WebSocket]] = defaultdict(dict)
         self._lock = asyncio.Lock()
 
     async def connect_user(self, ws: WebSocket, user_id: str) -> None:
@@ -28,10 +29,10 @@ class ConnectionManager:
             self._user_connections[user_id].add(ws)
         log.info("ws_user_connected", user_id=user_id)
 
-    async def connect_device(self, ws: WebSocket, device_id: str) -> None:
+    async def connect_device(self, ws: WebSocket, device_id: str, provider_slug: str = "default") -> None:
         async with self._lock:
-            self._device_connections[device_id] = ws
-        log.info("ws_device_connected", device_id=device_id)
+            self._device_connections[device_id][provider_slug] = ws
+        log.info("ws_device_connected", device_id=device_id, provider=provider_slug)
 
     async def disconnect_user(self, ws: WebSocket, user_id: str) -> None:
         async with self._lock:
@@ -40,10 +41,14 @@ class ConnectionManager:
                 del self._user_connections[user_id]
         log.info("ws_user_disconnected", user_id=user_id)
 
-    async def disconnect_device(self, ws: WebSocket, device_id: str) -> None:
+    async def disconnect_device(self, ws: WebSocket, device_id: str, provider_slug: str = "default") -> None:
         async with self._lock:
-            self._device_connections.pop(device_id, None)
-        log.info("ws_device_disconnected", device_id=device_id)
+            providers = self._device_connections.get(device_id, {})
+            if provider_slug in providers and providers[provider_slug] is ws:
+                del providers[provider_slug]
+            if not providers:
+                self._device_connections.pop(device_id, None)
+        log.info("ws_device_disconnected", device_id=device_id, provider=provider_slug)
 
     async def send_to_user(self, user_id: str, message: dict) -> int:
         """Send to all browser connections for this user. Returns delivery count."""
@@ -61,21 +66,35 @@ class ConnectionManager:
         return delivered
 
     async def send_to_device(self, device_id: str, message: dict) -> bool:
-        """Send to companion connection. Returns True if delivered."""
+        """Send to all companion connections for this device. Returns True if any delivered."""
+        payload = json.dumps(message)
+        delivered = False
+        async with self._lock:
+            providers = dict(self._device_connections.get(device_id, {}))
+        for ws in providers.values():
+            try:
+                await ws.send_text(payload)
+                delivered = True
+            except Exception:
+                log.warning("ws_device_send_failed", device_id=device_id)
+        return delivered
+
+    async def send_to_device_provider(self, device_id: str, provider_slug: str, message: dict) -> bool:
+        """Send to a specific provider's companion connection. Returns True if delivered."""
         payload = json.dumps(message)
         async with self._lock:
-            ws = self._device_connections.get(device_id)
+            ws = self._device_connections.get(device_id, {}).get(provider_slug)
         if ws is None:
             return False
         try:
             await ws.send_text(payload)
             return True
         except Exception:
-            log.warning("ws_device_send_failed", device_id=device_id)
+            log.warning("ws_device_provider_send_failed", device_id=device_id, provider=provider_slug)
             return False
 
     def is_device_connected(self, device_id: str) -> bool:
-        return device_id in self._device_connections
+        return bool(self._device_connections.get(device_id))
 
     def get_connected_device_ids(self) -> list[str]:
         return list(self._device_connections.keys())

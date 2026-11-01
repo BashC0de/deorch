@@ -11,6 +11,7 @@ const ConfigSchema = z.object({
   deviceSecret: z.string().default(''),
   sqlitePath: z.string().default('./data/companion.db'),
   hooksPort: z.coerce.number().int().default(8765),
+  providerSlug: z.string().default('claude-code'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   reconnectInitialDelayMs: z.coerce.number().int().default(1000),
   reconnectMaxDelayMs: z.coerce.number().int().default(30000),
@@ -29,6 +30,7 @@ export function loadConfig(): CompanionConfig {
     apiUrl: process.env['COMPANION_API_URL'] ?? creds?.apiUrl,
     wsUrl: process.env['COMPANION_WS_URL'] ??
       (creds?.apiUrl ? creds.apiUrl.replace(/^http/, 'ws') + '/ws/companion' : undefined),
+    providerSlug: process.env['COMPANION_PROVIDER_SLUG'],
     deviceId: process.env['COMPANION_DEVICE_ID'] ?? creds?.deviceId,
     deviceSecret: process.env['COMPANION_DEVICE_SECRET'] ?? creds?.deviceSecret,
     sqlitePath: process.env['COMPANION_SQLITE_PATH'],

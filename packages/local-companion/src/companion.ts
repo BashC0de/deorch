@@ -173,7 +173,7 @@ export class Companion {
           Authorization: `Bearer ${this.config.deviceId}:${this.config.deviceSecret}`,
         },
         body: JSON.stringify({
-          provider_slug: 'claude-code',
+          provider_slug: this.config.providerSlug,
           external_session_id: externalSessionId,
         }),
       });
