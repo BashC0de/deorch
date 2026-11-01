@@ -1,0 +1,20 @@
+{
+  "name": "DeOrch",
+  "short_name": "DeOrch",
+  "description": "Control your AI coding agents from anywhere",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0a0b",
+  "background_color": "#0a0a0b",
+  "categories": ["developer", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

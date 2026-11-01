@@ -5,12 +5,20 @@ import { DeOrchWebSocketClient, type WsMessage } from './connection/websocket-cl
 import { EventQueue } from './queue/event-queue.js';
 import { PendingApprovals } from './approval/pending.js';
 import { HooksServer } from './hooks/server.js';
+import { ServiceMonitor } from './monitors/service-monitor.js';
+import { GitMonitor } from './monitors/git-monitor.js';
+import { TestObserver } from './monitors/test-observer.js';
+import { BuildObserver } from './monitors/build-observer.js';
 
 export class Companion {
   private wsClient: DeOrchWebSocketClient;
   private eventQueue: EventQueue;
   private pendingApprovals: PendingApprovals;
   private hooksServer: HooksServer;
+  private serviceMonitor: ServiceMonitor;
+  private gitMonitor: GitMonitor;
+  readonly testObserver: TestObserver;
+  readonly buildObserver: BuildObserver;
   private sessionMap = new Map<string, string>(); // externalId → internalId
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -18,6 +26,10 @@ export class Companion {
     this.wsClient = new DeOrchWebSocketClient(config);
     this.eventQueue = new EventQueue(config.sqlitePath);
     this.pendingApprovals = new PendingApprovals();
+    this.serviceMonitor = new ServiceMonitor(config);
+    this.gitMonitor = new GitMonitor(config);
+    this.testObserver = new TestObserver(config);
+    this.buildObserver = new BuildObserver(config);
 
     this.hooksServer = new HooksServer({
       config,
@@ -27,6 +39,8 @@ export class Companion {
       createApprovalRequest: this._createApprovalRequest.bind(this),
       emitEvent: this._emitEvent.bind(this),
       ensureSession: this._ensureSession.bind(this),
+      testObserver: this.testObserver,
+      buildObserver: this.buildObserver,
     });
 
     this.wsClient.on('connected', () => this._onConnected());
@@ -61,12 +75,18 @@ export class Companion {
     // Periodic cleanup of expired pending approvals
     this.cleanupTimer = setInterval(() => this.pendingApprovals.cleanup(), 30_000);
 
+    // Start development intelligence monitors
+    await this.serviceMonitor.start();
+    this.gitMonitor.start();
+
     logger.info('companion_ready', { hooks: `http://127.0.0.1:${this.config.hooksPort}` });
   }
 
   async stop(): Promise<void> {
     logger.info('companion_stopping');
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    this.serviceMonitor.stop();
+    this.gitMonitor.stop();
     await this.hooksServer.stop();
     this.wsClient.destroy();
     this.eventQueue.close();

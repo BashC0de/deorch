@@ -109,7 +109,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from deorch_api.routers import auth, devices, pairing, projects, sessions, approvals, audit
+    from deorch_api.routers import auth, devices, pairing, projects, sessions, approvals, audit, notifications, intelligence
     from deorch_api.websocket import routes as ws_routes
 
     prefix = "/api/v1"
@@ -120,6 +120,8 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix=prefix)
     app.include_router(approvals.router, prefix=prefix)
     app.include_router(audit.router, prefix=prefix)
+    app.include_router(notifications.router, prefix=prefix)
+    app.include_router(intelligence.router, prefix=prefix)
     app.include_router(ws_routes.router)  # WS routes at root level
 
     @app.get("/health", tags=["system"])

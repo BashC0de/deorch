@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { Monitor, Terminal, Shield, AlertTriangle } from 'lucide-react';
 import { fetchApprovals } from '@/lib/api/approvals';
 import { fetchDevices } from '@/lib/api/devices';
 import { fetchSessions } from '@/lib/api/sessions';
@@ -15,9 +16,17 @@ export default function DashboardPage() {
   const { data: sessions = [] } = useQuery({ queryKey: ['sessions'], queryFn: fetchSessions });
   const { data: approvals = [] } = useQuery({ queryKey: ['approvals'], queryFn: () => fetchApprovals() });
 
-  const onlineDevices = devices.filter((d) => d.status === 'ACTIVE' || d.status === 'PAIRED');
+  const onlineDevices = devices.filter((d) => d.status === 'ACTIVE');
   const activeSessions = sessions.filter((s) => s.status === 'ACTIVE');
   const pendingApprovals = approvals.filter((a) => a.status === 'PENDING');
+  const failedSessions = sessions.filter((s) => s.status === 'ERROR');
+
+  const stats = [
+    { label: 'Machines', value: `${onlineDevices.length}/${devices.length}`, Icon: Monitor, highlight: false },
+    { label: 'Sessions', value: activeSessions.length, Icon: Terminal, highlight: false },
+    { label: 'Pending', value: pendingApprovals.length, Icon: Shield, highlight: pendingApprovals.length > 0 },
+    { label: 'Failures', value: failedSessions.length, Icon: AlertTriangle, highlight: failedSessions.length > 0 },
+  ];
 
   return (
     <div className="space-y-6">
@@ -35,21 +44,18 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Machines</p>
-          <p className="mt-1 text-2xl font-bold">{onlineDevices.length}</p>
-        </div>
-        <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Sessions</p>
-          <p className="mt-1 text-2xl font-bold">{activeSessions.length}</p>
-        </div>
-        <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Pending</p>
-          <p className={cn('mt-1 text-2xl font-bold', pendingApprovals.length > 0 && 'text-status-warning')}>
-            {pendingApprovals.length}
-          </p>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-lg border border-border-subtle bg-surface-raised p-3 sm:p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <s.Icon size={14} className="text-text-muted" />
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider">{s.label}</p>
+            </div>
+            <p className={cn('text-xl sm:text-2xl font-bold', s.highlight && 'text-status-warning')}>
+              {s.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Pending approvals */}
@@ -75,10 +81,13 @@ export default function DashboardPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{a.action_summary}</p>
-                    <p className="text-xs text-text-muted mt-0.5">{a.request_type} &middot; {timeAgo(a.created_at)}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-text-muted">
+                      {a.tool_name && <span className="text-text-secondary">{a.tool_name}</span>}
+                      <span>{timeAgo(a.created_at)}</span>
+                    </div>
                   </div>
-                  <span className={cn('text-xs font-medium', riskColor(a.risk_level))}>
-                    {a.risk_level ?? '—'}
+                  <span className={cn('text-xs font-medium shrink-0', riskColor(a.risk_level))}>
+                    {a.risk_level ?? ''}
                   </span>
                 </div>
               </Link>
@@ -108,9 +117,12 @@ export default function DashboardPage() {
                 className="block rounded-lg border border-border-subtle bg-surface-raised p-3 hover:bg-surface-subtle transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{s.provider_slug}</p>
-                    <p className="text-xs text-text-muted mt-0.5">{timeAgo(s.started_at ?? s.created_at)}</p>
+                  <div className="flex items-center gap-2">
+                    <Terminal size={14} className="text-accent shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">{s.provider_slug}</p>
+                      <p className="text-xs text-text-muted mt-0.5">{timeAgo(s.started_at ?? s.created_at)}</p>
+                    </div>
                   </div>
                   <span className={cn('text-xs font-medium', statusColor(s.status))}>{s.status}</span>
                 </div>

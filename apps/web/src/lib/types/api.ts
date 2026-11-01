@@ -74,6 +74,90 @@ export interface AgentEvent {
   created_at: string;
 }
 
+// ── Development Intelligence ──────────────────────────────────────────────
+
+export interface ServiceRegistration {
+  id: string;
+  name: string;
+  service_type: string;
+  project_id: string | null;
+  device_id: string;
+  host: string;
+  port: number;
+  health_path: string | null;
+  expected_status: number;
+  interval_seconds: number;
+  status: 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'STOPPED' | 'UNKNOWN';
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ServiceHealthCheck {
+  id: string;
+  service_id: string;
+  status: string;
+  response_ms: number | null;
+  status_code: number | null;
+  error: string | null;
+  checked_at: string;
+}
+
+export interface TestRun {
+  id: string;
+  project_id: string | null;
+  device_id: string;
+  session_id: string | null;
+  framework: string;
+  total_tests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration_ms: number | null;
+  status: string;
+  failures: Array<{ name: string; message: string }>;
+  error_output: string | null;
+  created_at: string;
+}
+
+export interface GitSnapshot {
+  id: string;
+  project_id: string | null;
+  device_id: string;
+  branch: string;
+  commit_hash: string;
+  modified_files: string[];
+  added_files: string[];
+  deleted_files: string[];
+  untracked_files: string[];
+  diff_stats: { additions?: number; deletions?: number };
+  created_at: string;
+}
+
+export interface BuildResult {
+  id: string;
+  project_id: string | null;
+  device_id: string;
+  session_id: string | null;
+  build_type: string;
+  command: string;
+  exit_code: number | null;
+  status: string;
+  error_output: string | null;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+export interface ProjectHealth {
+  project_id: string;
+  project_name: string;
+  services: ServiceRegistration[];
+  latest_test_run: TestRun | null;
+  latest_build: BuildResult | null;
+  latest_git: GitSnapshot | null;
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────
+
 export interface AuditRecord {
   id: string;
   event_type: string;

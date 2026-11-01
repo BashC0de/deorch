@@ -15,6 +15,7 @@ export type WsMessageType =
   | 'approval_decision'
   | 'device_connected'
   | 'device_disconnected'
+  | 'device_registered'
   | 'session_started'
   | 'session_ended'
   | 'agent_event'

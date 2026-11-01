@@ -19,26 +19,26 @@ describe('Claude Code adapter', () => {
     it('uses correct URL with custom port', () => {
       const config = getHooksConfig(9999);
       const preToolUse = config['PreToolUse'] as Array<{ hooks: Array<{ url: string }> }>;
-      expect(preToolUse[0].hooks[0].url).toBe('http://127.0.0.1:9999/hooks');
+      expect(preToolUse[0]!.hooks[0]!.url).toBe('http://127.0.0.1:9999/hooks');
     });
 
     it('sets 300s timeout for PreToolUse (approval wait)', () => {
       const config = getHooksConfig(8765);
       const preToolUse = config['PreToolUse'] as Array<{ hooks: Array<{ timeout: number }> }>;
-      expect(preToolUse[0].hooks[0].timeout).toBe(300);
+      expect(preToolUse[0]!.hooks[0]!.timeout).toBe(300);
     });
 
     it('sets short timeout for observe-only hooks', () => {
       const config = getHooksConfig(8765);
       const postToolUse = config['PostToolUse'] as Array<{ hooks: Array<{ timeout: number }> }>;
-      expect(postToolUse[0].hooks[0].timeout).toBe(10);
+      expect(postToolUse[0]!.hooks[0]!.timeout).toBe(10);
     });
 
     it('uses http hook type for all events', () => {
       const config = getHooksConfig(8765);
       for (const [, entries] of Object.entries(config)) {
         const arr = entries as Array<{ hooks: Array<{ type: string }> }>;
-        expect(arr[0].hooks[0].type).toBe('http');
+        expect(arr[0]!.hooks[0]!.type).toBe('http');
       }
     });
   });

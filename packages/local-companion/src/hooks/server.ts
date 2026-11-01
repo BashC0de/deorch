@@ -13,6 +13,8 @@ import type {
   NotificationPayload,
 } from './types.js';
 import { classifyRisk, requiresApproval } from './types.js';
+import type { TestObserver } from '../monitors/test-observer.js';
+import type { BuildObserver } from '../monitors/build-observer.js';
 import type { PendingApprovals, ApprovalDecision } from '../approval/pending.js';
 import type { EventQueue } from '../queue/event-queue.js';
 import type { CompanionConfig } from '../config.js';
@@ -36,6 +38,8 @@ export interface HookServerDeps {
     payload: Record<string, unknown>,
   ) => Promise<void>;
   ensureSession: (externalSessionId: string) => Promise<void>;
+  testObserver?: TestObserver;
+  buildObserver?: BuildObserver;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -230,11 +234,42 @@ export class HooksServer {
 
   private async _handlePostToolUse(payload: PostToolUsePayload): Promise<void> {
     const { session_id, tool_name, tool_input, tool_response } = payload;
+    const responseStr = typeof tool_response === 'string' ? tool_response : String(tool_response ?? '');
+
     await this._emitEvent(session_id, 'tool.post_use', {
       tool: tool_name,
       input: this._redactSecrets(tool_input),
-      response: typeof tool_response === 'string' ? tool_response.slice(0, 500) : String(tool_response).slice(0, 500),
+      response: responseStr.slice(0, 500),
     });
+
+    // Detect test executions and build commands in Bash tool output
+    if (tool_name === 'Bash') {
+      const command = String(tool_input['command'] ?? '');
+      const internalSessionId = this.deps.getSessionId(session_id);
+
+      // Test detection
+      if (this.deps.testObserver) {
+        const framework = this.deps.testObserver.detectTestCommand(command);
+        if (framework) {
+          const result = this.deps.testObserver.parseTestOutput(framework, responseStr);
+          if (result) {
+            await this.deps.testObserver.submitTestRun(result, internalSessionId);
+          }
+        }
+      }
+
+      // Build detection
+      if (this.deps.buildObserver) {
+        const buildType = this.deps.buildObserver.detectBuildCommand(command);
+        if (buildType) {
+          // Infer exit code from tool_response patterns
+          const exitCode = responseStr.includes('error') || responseStr.includes('FAILED') ? 1 : 0;
+          await this.deps.buildObserver.submitBuildResult(
+            buildType, command, exitCode, responseStr.slice(0, 5000), undefined, internalSessionId,
+          );
+        }
+      }
+    }
   }
 
   private async _handlePostToolUseFailure(payload: PostToolUseFailurePayload): Promise<void> {
