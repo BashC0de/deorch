@@ -156,6 +156,107 @@ export interface ProjectHealth {
   latest_git: GitSnapshot | null;
 }
 
+// ── Orchestration ─────────────────────────────────────────────────────────
+
+export interface OrchestrationRun {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  objective: string;
+  description: string | null;
+  status: 'CREATED' | 'PLANNING' | 'AWAITING_APPROVAL' | 'READY' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  execution_mode: string;
+  max_concurrent_tasks: number;
+  config: Record<string, unknown>;
+  budget_config: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  final_result: Record<string, unknown> | null;
+  created_at: string;
+  task_count: number;
+}
+
+export interface OrchestrationTask {
+  id: string;
+  run_id: string;
+  title: string;
+  description: string | null;
+  task_type: string;
+  status: 'CREATED' | 'BLOCKED' | 'READY' | 'ASSIGNED' | 'RUNNING' | 'VALIDATING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  priority: number;
+  assigned_provider: string | null;
+  assigned_session_id: string | null;
+  workspace_path: string | null;
+  retry_count: number;
+  max_retries: number;
+  estimated_complexity: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  result: Record<string, unknown> | null;
+  failure_reason: string | null;
+  validation_status: string;
+  validation_evidence: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface TaskDependency {
+  id: string;
+  source_task_id: string;
+  dependent_task_id: string;
+  dependency_type: string;
+  status: string;
+  satisfied_at: string | null;
+}
+
+export interface RunGraph {
+  run: OrchestrationRun;
+  tasks: OrchestrationTask[];
+  dependencies: TaskDependency[];
+}
+
+// ── Workflows ─────────────────────────────────────────────────────────────
+
+export interface WorkflowSummary {
+  id: string;
+  author_id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  category: string;
+  tags: string[];
+  visibility: 'PRIVATE' | 'PUBLIC' | 'ORGANIZATION';
+  status: string;
+  org_id: string | null;
+  created_at: string;
+  latest_version: string | null;
+  version_count: number;
+  installation_count: number;
+}
+
+export interface WorkflowVersionSummary {
+  id: string;
+  workflow_id: string;
+  version_number: string;
+  definition: Record<string, unknown>;
+  checksum: string;
+  trust_status: string;
+  changelog: string | null;
+  required_capabilities: string[];
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface WorkflowInstallationSummary {
+  id: string;
+  workflow_id: string;
+  workflow_version_id: string;
+  user_id: string;
+  project_id: string | null;
+  config_overrides: Record<string, unknown>;
+  is_enabled: boolean;
+  created_at: string;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 export interface AuditRecord {

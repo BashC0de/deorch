@@ -48,7 +48,8 @@ export class Companion {
     this.wsClient.on('message', (msg) => this._onMessage(msg));
     this.wsClient.on('auth_error', (reason) => {
       logger.error('ws_auth_error_fatal', { reason });
-      process.exit(1);
+      // Graceful shutdown: clean up resources before exiting
+      void this.stop().finally(() => process.exit(1));
     });
   }
 

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: Literal["development", "production", "test"] = "development"
     deorch_secret_key: str = Field(min_length=16)
+    encryption_key: str = Field(default="", min_length=0)  # Base64-encoded 32-byte key for credential encryption
 
     # Database
     database_url: str = "postgresql+asyncpg://deorch:deorch@localhost:5432/deorch"

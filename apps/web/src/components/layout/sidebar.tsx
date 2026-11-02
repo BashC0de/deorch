@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Home, Shield, Terminal, Monitor, Bell, FolderOpen } from 'lucide-react';
+import { Home, Shield, Terminal, Monitor, Bell, FolderOpen, GitBranch, Layers, Settings, Plug } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useWs } from '@/lib/providers/ws-provider';
 import { fetchApprovals } from '@/lib/api/approvals';
@@ -11,10 +11,14 @@ import { fetchApprovals } from '@/lib/api/approvals';
 const navItems = [
   { label: 'Overview', href: '/dashboard', Icon: Home },
   { label: 'Approvals', href: '/dashboard/approvals', Icon: Shield },
+  { label: 'Workflows', href: '/dashboard/workflows', Icon: Layers },
+  { label: 'Orchestration', href: '/dashboard/orchestration', Icon: GitBranch },
   { label: 'Sessions', href: '/dashboard/sessions', Icon: Terminal },
   { label: 'Projects', href: '/dashboard/projects', Icon: FolderOpen },
   { label: 'Devices', href: '/dashboard/devices', Icon: Monitor },
+  { label: 'Integrations', href: '/dashboard/integrations', Icon: Plug },
   { label: 'Activity', href: '/dashboard/notifications', Icon: Bell },
+  { label: 'Settings', href: '/dashboard/settings', Icon: Settings },
 ];
 
 export function Sidebar() {

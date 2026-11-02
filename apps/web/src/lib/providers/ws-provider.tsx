@@ -170,6 +170,15 @@ export function WsProvider({ children }: { children: ReactNode }) {
           void queryClient.invalidateQueries({ queryKey: ['project-health'] });
           break;
 
+        case 'run_updated':
+          void queryClient.invalidateQueries({ queryKey: ['orchestration-runs'] });
+          void queryClient.invalidateQueries({ queryKey: ['orchestration-graph'] });
+          break;
+
+        case 'task_updated':
+          void queryClient.invalidateQueries({ queryKey: ['orchestration-graph'] });
+          break;
+
         case 'pong':
           break;
       }

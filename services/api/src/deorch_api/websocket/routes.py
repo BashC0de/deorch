@@ -205,9 +205,10 @@ async def companion_ws(ws: WebSocket) -> None:
     finally:
         if device_id:
             await connection_manager.disconnect_device(ws, device_id, provider_slug)
-            await connection_manager.send_to_user(
-                user_id, device_disconnected_msg(device_id)  # type: ignore[possibly-undefined]
-            )
+            if user_id:  # Guard against undefined user_id if auth failed early
+                await connection_manager.send_to_user(
+                    user_id, device_disconnected_msg(device_id)
+                )
             # Revert device status and cancel pending approvals
             try:
                 from datetime import UTC, datetime

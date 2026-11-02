@@ -51,6 +51,14 @@ export async function api<T>(
   });
 
   if (!resp.ok) {
+    // Handle 401: clear token and redirect to login
+    if (resp.status === 401) {
+      setAccessToken(null);
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+        window.location.href = '/auth/login';
+      }
+    }
+
     let detail = resp.statusText;
     try {
       const body = await resp.json() as { detail?: string };

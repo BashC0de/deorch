@@ -31,6 +31,13 @@ class ConnectionManager:
 
     async def connect_device(self, ws: WebSocket, device_id: str, provider_slug: str = "default") -> None:
         async with self._lock:
+            # Close old connection if exists to prevent memory leak
+            old_ws = self._device_connections[device_id].get(provider_slug)
+            if old_ws is not None and old_ws is not ws:
+                try:
+                    await old_ws.close(code=1000)
+                except Exception:
+                    pass
             self._device_connections[device_id][provider_slug] = ws
         log.info("ws_device_connected", device_id=device_id, provider=provider_slug)
 

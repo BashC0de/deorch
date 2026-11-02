@@ -9,6 +9,7 @@ import { fetchSessions } from '@/lib/api/sessions';
 import { cn } from '@/lib/utils/cn';
 import { timeAgo, riskColor, statusColor } from '@/lib/utils/format';
 import { useWs } from '@/lib/providers/ws-provider';
+import { OnboardingChecklist } from '@/components/onboarding/checklist';
 
 export default function DashboardPage() {
   const { isConnected } = useWs();
@@ -42,6 +43,9 @@ export default function DashboardPage() {
           {isConnected ? 'Live' : 'Disconnected'}
         </span>
       </div>
+
+      {/* Onboarding checklist for new users */}
+      <OnboardingChecklist />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

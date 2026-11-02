@@ -61,12 +61,74 @@ async def seed_agent_providers(db_session) -> None:  # type: ignore[no-untyped-d
     await db_session.commit()
 
 
+async def seed_plans(db_session) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import select
+    from deorch_api.models.billing import Plan
+
+    plans = [
+        {
+            "slug": "individual", "display_name": "Individual", "tier": "individual",
+            "description": "For solo developers",
+            "price_monthly_cents": 0, "sort_order": 0,
+            "entitlements": {
+                "max_users": 1, "max_devices": 3, "max_sessions": 10,
+                "max_workflow_executions": 5, "audit_export": False, "sso": False,
+            },
+        },
+        {
+            "slug": "team", "display_name": "Team", "tier": "team",
+            "description": "For development teams",
+            "price_monthly_cents": 2900, "sort_order": 1,
+            "entitlements": {
+                "max_users": 10, "max_devices": 20, "max_sessions": -1,
+                "max_workflow_executions": 50, "audit_export": True, "sso": False,
+            },
+        },
+        {
+            "slug": "enterprise", "display_name": "Enterprise", "tier": "enterprise",
+            "description": "For organizations at scale",
+            "price_monthly_cents": 9900, "sort_order": 2,
+            "entitlements": {
+                "max_users": -1, "max_devices": -1, "max_sessions": -1,
+                "max_workflow_executions": -1, "audit_export": True, "sso": True,
+            },
+        },
+    ]
+    for p in plans:
+        existing = await db_session.execute(
+            select(Plan).where(Plan.slug == p["slug"])
+        )
+        if not existing.scalar_one_or_none():
+            db_session.add(Plan(**p))
+    await db_session.commit()
+
+
+async def seed_integrations(db_session) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import select
+    from deorch_api.models.integration import Integration
+    from deorch_api.integrations.github import INTEGRATION_DEFINITION as github_def
+    from deorch_api.integrations.slack import INTEGRATION_DEFINITION as slack_def
+
+    for defn in [github_def, slack_def]:
+        existing = await db_session.execute(
+            select(Integration).where(Integration.slug == defn["slug"])
+        )
+        if not existing.scalar_one_or_none():
+            db_session.add(Integration(**defn))
+    await db_session.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
 
     configure_logging()
     log.info("deorch_api_starting", version=settings.app_version, env=settings.environment)
+
+    # Validate security-critical configuration
+    if settings.environment == "production":
+        from deorch_api.services.crypto import validate_crypto_config
+        validate_crypto_config()  # Raises RuntimeError if encryption key missing
 
     if settings.environment in ("development", "test"):
         from deorch_api.database import create_tables
@@ -75,17 +137,26 @@ async def lifespan(app: FastAPI):
     from deorch_api.database import AsyncSessionFactory
     async with AsyncSessionFactory() as db:
         await seed_agent_providers(db)
+        await seed_plans(db)
+        await seed_integrations(db)
 
-    # Start background expiry task for stale approval requests
+    # Start background tasks
     from deorch_api.services.expiry import run_expiry_loop
+    from deorch_api.services.webhook_delivery import run_delivery_loop
     expiry_task = asyncio.create_task(run_expiry_loop())
+    delivery_task = asyncio.create_task(run_delivery_loop())
 
     log.info("deorch_api_ready")
     yield
 
     expiry_task.cancel()
+    delivery_task.cancel()
     try:
         await expiry_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await delivery_task
     except asyncio.CancelledError:
         pass
     log.info("deorch_api_shutdown")
@@ -109,7 +180,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from deorch_api.routers import auth, devices, pairing, projects, sessions, approvals, audit, notifications, intelligence
+    from deorch_api.routers import auth, devices, pairing, projects, sessions, approvals, audit, notifications, intelligence, orchestration, workflow, analytics, feedback, billing, integrations
     from deorch_api.websocket import routes as ws_routes
 
     prefix = "/api/v1"
@@ -122,6 +193,12 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix=prefix)
     app.include_router(notifications.router, prefix=prefix)
     app.include_router(intelligence.router, prefix=prefix)
+    app.include_router(orchestration.router, prefix=prefix)
+    app.include_router(workflow.router, prefix=prefix)
+    app.include_router(analytics.router, prefix=prefix)
+    app.include_router(feedback.router, prefix=prefix)
+    app.include_router(billing.router, prefix=prefix)
+    app.include_router(integrations.router, prefix=prefix)
     app.include_router(ws_routes.router)  # WS routes at root level
 
     @app.get("/health", tags=["system"])

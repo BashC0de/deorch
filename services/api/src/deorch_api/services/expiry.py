@@ -97,10 +97,13 @@ async def retry_undelivered_decisions() -> int:
                 ),
             )
 
+            # Increment attempts BEFORE send to prevent duplicate retries on crash
             decision.delivery_attempts += 1
             if success:
                 decision.delivered_at = now
                 delivered_count += 1
+            # Commit each attempt individually for crash safety
+            await db.flush()
 
         await db.commit()
         if delivered_count > 0:
